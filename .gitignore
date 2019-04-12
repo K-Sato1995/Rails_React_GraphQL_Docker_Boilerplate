@@ -5,54 +5,50 @@
 #   git config --global core.excludesfile '~/.gitignore_global'
 
 # Ignore bundler config.
-/.bundle
-
-# Ignore the default SQLite database.
-/db/*.sqlite3
-/db/*.sqlite3-journal
+/server/.bundle
 
 # Ignore all logfiles and tempfiles.
-/log/*
-/tmp/*
-!/log/.keep
-!/tmp/.keep
+/server/log/*
+/server/tmp/*
+/server!/log/.keep
+/server!/tmp/.keep
 
 # Ignore uploaded files in development
-/storage/*
-!/storage/.keep
+/server/storage/*
+/server!/storage/.keep
 
-/node_modules
-/yarn-error.log
+/server/node_modules
+/server/yarn-error.log
 
-/public/assets
-.byebug_history
+/server/public/assets
+/server.byebug_history
 
 # Ignore master key for decrypting credentials and more.
-/config/master.key
+/server/config/master.key
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
-.pnp.js
+/client/node_modules
+/client/.pnp
+/client.pnp.js
 
 # testing
-/coverage
+/client/coverage
 
 # production
-/build
+/client/build
 
 # misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+/client/.DS_Store
+/client/.env.local
+/client/.env.development.local
+/client/.env.test.local
+/client/.env.production.local
 
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+/client/npm-debug.log*
+/client/yarn-debug.log*
+/client/yarn-error.log*
 
 #tags
 .tags
