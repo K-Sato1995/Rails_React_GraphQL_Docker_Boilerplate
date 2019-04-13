@@ -1,0 +1,29 @@
+version: "3"
+services:
+  server:
+    build: ./server
+    command: >
+      sh -c "rm -f tmp/pids/server.pid &&
+      rails db:setup &&
+      bundle exec rails server -b 0.0.0.0 -p 3000"
+    volumes:
+      - ./server:/myapp/server
+    ports:
+      - "${SERVER_PORT}:3000"
+    depends_on:
+      - postgres
+  postgres:
+    image: "postgres:alpine"
+    ports:
+      - "5432:5432"
+    volumes:
+      - server_db:/var/lib/postgresql/data
+  # client:
+  #   build: ./client
+  #   command: "npm run start"
+  #   volumes:
+  #     - ./client:/myapp/client
+  #   ports:
+  #     - "${CLIENT_PORT}:3000"
+volumes:
+  server_db:
