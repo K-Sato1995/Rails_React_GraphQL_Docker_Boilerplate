@@ -1,4 +1,4 @@
-/** @license React v16.8.6
+/** @license React v16.9.0
  * react-dom-unstable-fizz.browser.development.js
  *
  * Copyright (c) Facebook, Inc. and its affiliates.
@@ -56,6 +56,14 @@ function formatChunk(type, props) {
 var hasSymbol = typeof Symbol === 'function' && Symbol.for;
 
 var REACT_ELEMENT_TYPE = hasSymbol ? Symbol.for('react.element') : 0xeac7;
+
+
+
+
+
+
+// TODO: We don't use AsyncMode or ConcurrentMode anymore. They were temporary
+// (unstable) APIs that have been removed. Can we remove the symbols?
 
 function createRequest(children, destination) {
   return { destination: destination, children: children, completedChunks: [], flowing: false };
