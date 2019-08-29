@@ -174,9 +174,8 @@ function convertBlockScopedToVar(path, node, parent, scope, moveBindingsToParent
 
   if (moveBindingsToParent) {
     const parentScope = scope.getFunctionParent() || scope.getProgramParent();
-    const ids = path.getBindingIdentifiers();
 
-    for (const name in ids) {
+    for (const name of Object.keys(path.getBindingIdentifiers())) {
       const binding = scope.getOwnBinding(name);
       if (binding) binding.kind = "var";
       scope.moveBindingTo(name, parentScope);
@@ -264,9 +263,7 @@ const loopLabelVisitor = {
 const continuationVisitor = {
   enter(path, state) {
     if (path.isAssignmentExpression() || path.isUpdateExpression()) {
-      const bindings = path.getBindingIdentifiers();
-
-      for (const name in bindings) {
+      for (const name of Object.keys(path.getBindingIdentifiers())) {
         if (state.outsideReferences[name] !== path.scope.getBindingIdentifier(name)) {
           continue;
         }
@@ -403,7 +400,7 @@ class BlockScoping {
     const scope = this.scope;
     const state = this.state;
 
-    for (const name in scope.bindings) {
+    for (const name of Object.keys(scope.bindings)) {
       const binding = scope.bindings[name];
       if (binding.kind !== "const") continue;
 
@@ -429,7 +426,7 @@ class BlockScoping {
     const parentScope = scope.getFunctionParent() || scope.getProgramParent();
     const letRefs = this.letReferences;
 
-    for (const key in letRefs) {
+    for (const key of Object.keys(letRefs)) {
       const ref = letRefs[key];
       const binding = scope.getBinding(ref.name);
       if (!binding) continue;
@@ -452,7 +449,7 @@ class BlockScoping {
     const scope = this.scope;
     const blockPathScope = this.blockPath.scope;
 
-    for (const key in letRefs) {
+    for (const key of Object.keys(letRefs)) {
       const ref = letRefs[key];
 
       if (scope.parentHasBinding(key) || scope.hasGlobal(key)) {
@@ -466,7 +463,7 @@ class BlockScoping {
       }
     }
 
-    for (const key in outsideLetRefs) {
+    for (const key of Object.keys(outsideLetRefs)) {
       const ref = letRefs[key];
 
       if (isInLoop(this.blockPath) && blockPathScope.hasOwnBinding(key)) {
@@ -484,7 +481,7 @@ class BlockScoping {
     const outsideRefs = this.outsideLetReferences;
 
     if (this.loop) {
-      for (const name in outsideRefs) {
+      for (const name of Object.keys(outsideRefs)) {
         const id = outsideRefs[name];
 
         if (this.scope.hasGlobal(id.name) || this.scope.parentHasBinding(id.name)) {
@@ -696,7 +693,7 @@ class BlockScoping {
 
     const names = _core().types.getBindingIdentifiers(node);
 
-    for (const name in names) {
+    for (const name of Object.keys(names)) {
       declars.push(_core().types.variableDeclarator(names[name]));
     }
 
@@ -728,7 +725,7 @@ class BlockScoping {
     }
 
     if (has.hasBreakContinue) {
-      for (const key in has.map) {
+      for (const key of Object.keys(has.map)) {
         cases.push(_core().types.switchCase(_core().types.stringLiteral(key), [has.map[key]]));
       }
 

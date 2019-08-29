@@ -1,4 +1,4 @@
-"use strict"
+'use strict'
 exports.__esModule = true
 
 const extname = require('path').extname
@@ -34,6 +34,7 @@ function makeValidExtensionSet(settings) {
 
   return exts
 }
+exports.getFileExtensions = makeValidExtensionSet
 
 exports.default = function ignore(path, context) {
   // check extension whitelist first (cheap)

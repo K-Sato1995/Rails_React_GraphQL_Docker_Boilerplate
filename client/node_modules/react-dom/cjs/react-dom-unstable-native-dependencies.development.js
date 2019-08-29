@@ -1,4 +1,4 @@
-/** @license React v16.8.6
+/** @license React v16.9.0
  * react-dom-unstable-native-dependencies.development.js
  *
  * Copyright (c) Facebook, Inc. and its affiliates.
@@ -18,6 +18,19 @@ if (process.env.NODE_ENV !== "production") {
 var ReactDOM = require('react-dom');
 var _assign = require('object-assign');
 
+// Do not require this module directly! Use normal `invariant` calls with
+// template literal strings. The messages will be converted to ReactError during
+// build, and in production they will be minified.
+
+// Do not require this module directly! Use normal `invariant` calls with
+// template literal strings. The messages will be converted to ReactError during
+// build, and in production they will be minified.
+
+function ReactError(error) {
+  error.name = 'Invariant Violation';
+  return error;
+}
+
 /**
  * Use invariant() to assert state which your program assumes to be true.
  *
@@ -28,40 +41,6 @@ var _assign = require('object-assign');
  * The invariant message will be stripped in production, but the invariant
  * will remain to ensure logic does not differ in production.
  */
-
-var validateFormat = function () {};
-
-{
-  validateFormat = function (format) {
-    if (format === undefined) {
-      throw new Error('invariant requires an error message argument');
-    }
-  };
-}
-
-function invariant(condition, format, a, b, c, d, e, f) {
-  validateFormat(format);
-
-  if (!condition) {
-    var error = void 0;
-    if (format === undefined) {
-      error = new Error('Minified exception occurred; use the non-minified dev environment ' + 'for the full error message and additional helpful warnings.');
-    } else {
-      var args = [a, b, c, d, e, f];
-      var argIndex = 0;
-      error = new Error(format.replace(/%s/g, function () {
-        return args[argIndex++];
-      }));
-      error.name = 'Invariant Violation';
-    }
-
-    error.framesToPop = 1; // we don't care about invariant's own frame
-    throw error;
-  }
-}
-
-// Relying on the `invariant()` implementation lets us
-// preserve the format and params in the www builds.
 
 {
   // In DEV mode, we swap out invokeGuardedCallback for a special version
@@ -204,6 +183,14 @@ var validateEventDispatches = void 0;
 }
 
 /**
+ * Dispatch the event to the listener.
+ * @param {SyntheticEvent} event SyntheticEvent to handle
+ * @param {function} listener Application-level callback
+ * @param {*} inst Internal component instance
+ */
+
+
+/**
  * Standard/simple iteration through an event's collected dispatches.
  */
 
@@ -264,7 +251,13 @@ function executeDirectDispatch(event) {
   }
   var dispatchListener = event._dispatchListeners;
   var dispatchInstance = event._dispatchInstances;
-  !!Array.isArray(dispatchListener) ? invariant(false, 'executeDirectDispatch(...): Invalid `event`.') : void 0;
+  (function () {
+    if (!!Array.isArray(dispatchListener)) {
+      {
+        throw ReactError(Error('executeDirectDispatch(...): Invalid `event`.'));
+      }
+    }
+  })();
   event.currentTarget = dispatchListener ? getNodeFromInstance$1(dispatchInstance) : null;
   var res = dispatchListener ? dispatchListener(event) : null;
   event.currentTarget = null;
@@ -456,7 +449,13 @@ function traverseTwoPhase(inst, fn, arg) {
  */
 
 function accumulateInto(current, next) {
-  !(next != null) ? invariant(false, 'accumulateInto(...): Accumulated items must not be null or undefined.') : void 0;
+  (function () {
+    if (!(next != null)) {
+      {
+        throw ReactError(Error('accumulateInto(...): Accumulated items must not be null or undefined.'));
+      }
+    }
+  })();
 
   if (current == null) {
     return next;
@@ -572,7 +571,13 @@ function getListener(inst, registrationName) {
   if (shouldPreventMouseEvent(registrationName, inst.type, props)) {
     return null;
   }
-  !(!listener || typeof listener === 'function') ? invariant(false, 'Expected `%s` listener to be a function, instead got a value of `%s` type.', registrationName, typeof listener) : void 0;
+  (function () {
+    if (!(!listener || typeof listener === 'function')) {
+      {
+        throw ReactError(Error('Expected `' + registrationName + '` listener to be a function, instead got a value of `' + typeof listener + '` type.'));
+      }
+    }
+  })();
   return listener;
 }
 
@@ -925,7 +930,13 @@ function getPooledEvent(dispatchConfig, targetInst, nativeEvent, nativeInst) {
 
 function releasePooledEvent(event) {
   var EventConstructor = this;
-  !(event instanceof EventConstructor) ? invariant(false, 'Trying to release an event instance into a pool of a different type.') : void 0;
+  (function () {
+    if (!(event instanceof EventConstructor)) {
+      {
+        throw ReactError(Error('Trying to release an event instance into a pool of a different type.'));
+      }
+    }
+  })();
   event.destructor();
   if (EventConstructor.eventPool.length < EVENT_POOL_SIZE) {
     EventConstructor.eventPool.push(event);
@@ -1039,7 +1050,13 @@ function resetTouchRecord(touchRecord, touch) {
 function getTouchIdentifier(_ref) {
   var identifier = _ref.identifier;
 
-  !(identifier != null) ? invariant(false, 'Touch object is missing identifier.') : void 0;
+  (function () {
+    if (!(identifier != null)) {
+      {
+        throw ReactError(Error('Touch object is missing identifier.'));
+      }
+    }
+  })();
   {
     !(identifier <= MAX_TOUCH_BANK) ? warningWithoutStack$1(false, 'Touch identifier %s is greater than maximum supported %s which causes ' + 'performance issues backfilling array locations for all of the indices.', identifier, MAX_TOUCH_BANK) : void 0;
   }
@@ -1069,7 +1086,7 @@ function recordTouchMove(touch) {
     touchRecord.currentTimeStamp = timestampForTouch(touch);
     touchHistory.mostRecentTimeStamp = timestampForTouch(touch);
   } else {
-    console.error('Cannot record touch move without a touch start.\n' + 'Touch Move: %s\n', 'Touch Bank: %s', printTouch(touch), printTouchBank());
+    console.warn('Cannot record touch move without a touch start.\n' + 'Touch Move: %s\n', 'Touch Bank: %s', printTouch(touch), printTouchBank());
   }
 }
 
@@ -1085,7 +1102,7 @@ function recordTouchEnd(touch) {
     touchRecord.currentTimeStamp = timestampForTouch(touch);
     touchHistory.mostRecentTimeStamp = timestampForTouch(touch);
   } else {
-    console.error('Cannot record touch end without a touch start.\n' + 'Touch End: %s\n', 'Touch Bank: %s', printTouch(touch), printTouchBank());
+    console.warn('Cannot record touch end without a touch start.\n' + 'Touch End: %s\n', 'Touch Bank: %s', printTouch(touch), printTouchBank());
   }
 }
 
@@ -1147,7 +1164,13 @@ var ResponderTouchHistoryStore = {
  * @return {*|array<*>} An accumulation of items.
  */
 function accumulate(current, next) {
-  !(next != null) ? invariant(false, 'accumulate(...): Accumulated items must be not be null or undefined.') : void 0;
+  (function () {
+    if (!(next != null)) {
+      {
+        throw ReactError(Error('accumulate(...): Accumulated items must not be null or undefined.'));
+      }
+    }
+  })();
 
   if (current == null) {
     return next;
@@ -1651,7 +1674,7 @@ var ResponderEventPlugin = {
 };
 
 // Inject react-dom's ComponentTree into this module.
-// Keep in sync with ReactDOM.js and ReactTestUtils.js:
+// Keep in sync with ReactDOM.js, ReactTestUtils.js, and ReactTestUtilsAct.js:
 var _ReactDOM$__SECRET_IN = ReactDOM.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.Events;
 var getInstanceFromNode = _ReactDOM$__SECRET_IN[0];
 var getNodeFromInstance = _ReactDOM$__SECRET_IN[1];

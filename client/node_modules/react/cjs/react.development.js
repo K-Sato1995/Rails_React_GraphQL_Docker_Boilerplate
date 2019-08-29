@@ -1,4 +1,4 @@
-/** @license React v16.8.6
+/** @license React v16.9.0
  * react.development.js
  *
  * Copyright (c) Facebook, Inc. and its affiliates.
@@ -20,7 +20,7 @@ var checkPropTypes = require('prop-types/checkPropTypes');
 
 // TODO: this is special because it gets imported during build.
 
-var ReactVersion = '16.8.6';
+var ReactVersion = '16.9.0';
 
 // The Symbol used to tag the ReactElement-like types. If there is no native Symbol
 // nor polyfill, then a plain number is used for performance.
@@ -33,12 +33,17 @@ var REACT_STRICT_MODE_TYPE = hasSymbol ? Symbol.for('react.strict_mode') : 0xeac
 var REACT_PROFILER_TYPE = hasSymbol ? Symbol.for('react.profiler') : 0xead2;
 var REACT_PROVIDER_TYPE = hasSymbol ? Symbol.for('react.provider') : 0xeacd;
 var REACT_CONTEXT_TYPE = hasSymbol ? Symbol.for('react.context') : 0xeace;
+// TODO: We don't use AsyncMode or ConcurrentMode anymore. They were temporary
+// (unstable) APIs that have been removed. Can we remove the symbols?
 
 var REACT_CONCURRENT_MODE_TYPE = hasSymbol ? Symbol.for('react.concurrent_mode') : 0xeacf;
 var REACT_FORWARD_REF_TYPE = hasSymbol ? Symbol.for('react.forward_ref') : 0xead0;
 var REACT_SUSPENSE_TYPE = hasSymbol ? Symbol.for('react.suspense') : 0xead1;
+var REACT_SUSPENSE_LIST_TYPE = hasSymbol ? Symbol.for('react.suspense_list') : 0xead8;
 var REACT_MEMO_TYPE = hasSymbol ? Symbol.for('react.memo') : 0xead3;
 var REACT_LAZY_TYPE = hasSymbol ? Symbol.for('react.lazy') : 0xead4;
+var REACT_FUNDAMENTAL_TYPE = hasSymbol ? Symbol.for('react.fundamental') : 0xead5;
+var REACT_RESPONDER_TYPE = hasSymbol ? Symbol.for('react.responder') : 0xead6;
 
 var MAYBE_ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator;
 var FAUX_ITERATOR_SYMBOL = '@@iterator';
@@ -54,6 +59,19 @@ function getIteratorFn(maybeIterable) {
   return null;
 }
 
+// Do not require this module directly! Use normal `invariant` calls with
+// template literal strings. The messages will be converted to ReactError during
+// build, and in production they will be minified.
+
+// Do not require this module directly! Use normal `invariant` calls with
+// template literal strings. The messages will be converted to ReactError during
+// build, and in production they will be minified.
+
+function ReactError(error) {
+  error.name = 'Invariant Violation';
+  return error;
+}
+
 /**
  * Use invariant() to assert state which your program assumes to be true.
  *
@@ -64,40 +82,6 @@ function getIteratorFn(maybeIterable) {
  * The invariant message will be stripped in production, but the invariant
  * will remain to ensure logic does not differ in production.
  */
-
-var validateFormat = function () {};
-
-{
-  validateFormat = function (format) {
-    if (format === undefined) {
-      throw new Error('invariant requires an error message argument');
-    }
-  };
-}
-
-function invariant(condition, format, a, b, c, d, e, f) {
-  validateFormat(format);
-
-  if (!condition) {
-    var error = void 0;
-    if (format === undefined) {
-      error = new Error('Minified exception occurred; use the non-minified dev environment ' + 'for the full error message and additional helpful warnings.');
-    } else {
-      var args = [a, b, c, d, e, f];
-      var argIndex = 0;
-      error = new Error(format.replace(/%s/g, function () {
-        return args[argIndex++];
-      }));
-      error.name = 'Invariant Violation';
-    }
-
-    error.framesToPop = 1; // we don't care about invariant's own frame
-    throw error;
-  }
-}
-
-// Relying on the `invariant()` implementation lets us
-// preserve the format and params in the www builds.
 
 /**
  * Forked from fbjs/warning:
@@ -331,7 +315,13 @@ Component.prototype.isReactComponent = {};
  * @protected
  */
 Component.prototype.setState = function (partialState, callback) {
-  !(typeof partialState === 'object' || typeof partialState === 'function' || partialState == null) ? invariant(false, 'setState(...): takes an object of state variables to update or a function which returns an object of state variables.') : void 0;
+  (function () {
+    if (!(typeof partialState === 'object' || typeof partialState === 'function' || partialState == null)) {
+      {
+        throw ReactError(Error('setState(...): takes an object of state variables to update or a function which returns an object of state variables.'));
+      }
+    }
+  })();
   this.updater.enqueueSetState(this, partialState, callback, 'setState');
 };
 
@@ -421,6 +411,14 @@ var ReactCurrentDispatcher = {
 };
 
 /**
+ * Keeps track of the current batch's configuration such as how long an update
+ * should suspend for if it needs to.
+ */
+var ReactCurrentBatchConfig = {
+  suspense: null
+};
+
+/**
  * Keeps track of the current owner.
  *
  * The current owner is the component who should own any components that are
@@ -491,8 +489,6 @@ function getComponentName(type) {
     return type;
   }
   switch (type) {
-    case REACT_CONCURRENT_MODE_TYPE:
-      return 'ConcurrentMode';
     case REACT_FRAGMENT_TYPE:
       return 'Fragment';
     case REACT_PORTAL_TYPE:
@@ -503,6 +499,8 @@ function getComponentName(type) {
       return 'StrictMode';
     case REACT_SUSPENSE_TYPE:
       return 'Suspense';
+    case REACT_SUSPENSE_LIST_TYPE:
+      return 'SuspenseList';
   }
   if (typeof type === 'object') {
     switch (type.$$typeof) {
@@ -521,6 +519,7 @@ function getComponentName(type) {
           if (resolvedThenable) {
             return getComponentName(resolvedThenable);
           }
+          break;
         }
     }
   }
@@ -561,9 +560,19 @@ function setCurrentlyValidatingElement(element) {
   };
 }
 
+/**
+ * Used by act() to track whether you're inside an act() scope.
+ */
+
+var IsSomeRendererActing = {
+  current: false
+};
+
 var ReactSharedInternals = {
   ReactCurrentDispatcher: ReactCurrentDispatcher,
+  ReactCurrentBatchConfig: ReactCurrentBatchConfig,
   ReactCurrentOwner: ReactCurrentOwner,
+  IsSomeRendererActing: IsSomeRendererActing,
   // Used by renderers to avoid bundling object-assign twice in UMD bundles:
   assign: _assign
 };
@@ -677,8 +686,10 @@ function defineRefPropWarningGetter(props, displayName) {
  * if something is a React Element.
  *
  * @param {*} type
+ * @param {*} props
  * @param {*} key
  * @param {string|object} ref
+ * @param {*} owner
  * @param {*} self A *temporary* helper to detect places where `this` is
  * different from the `owner` when React.createElement is called, so that we
  * can warn. We want to get rid of owner and replace string `ref`s with arrow
@@ -686,8 +697,6 @@ function defineRefPropWarningGetter(props, displayName) {
  * change in behavior.
  * @param {*} source An annotation object (added by a transpiler or otherwise)
  * indicating filename, line number, and/or other information.
- * @param {*} owner
- * @param {*} props
  * @internal
  */
 var ReactElement = function (type, key, ref, self, source, owner, props) {
@@ -745,6 +754,73 @@ var ReactElement = function (type, key, ref, self, source, owner, props) {
 
   return element;
 };
+
+/**
+ * https://github.com/reactjs/rfcs/pull/107
+ * @param {*} type
+ * @param {object} props
+ * @param {string} key
+ */
+
+
+/**
+ * https://github.com/reactjs/rfcs/pull/107
+ * @param {*} type
+ * @param {object} props
+ * @param {string} key
+ */
+function jsxDEV(type, config, maybeKey, source, self) {
+  var propName = void 0;
+
+  // Reserved names are extracted
+  var props = {};
+
+  var key = null;
+  var ref = null;
+
+  if (hasValidRef(config)) {
+    ref = config.ref;
+  }
+
+  if (hasValidKey(config)) {
+    key = '' + config.key;
+  }
+
+  // Remaining properties are added to a new props object
+  for (propName in config) {
+    if (hasOwnProperty.call(config, propName) && !RESERVED_PROPS.hasOwnProperty(propName)) {
+      props[propName] = config[propName];
+    }
+  }
+
+  // intentionally not checking if key was set above
+  // this key is higher priority as it's static
+  if (maybeKey !== undefined) {
+    key = '' + maybeKey;
+  }
+
+  // Resolve default props
+  if (type && type.defaultProps) {
+    var defaultProps = type.defaultProps;
+    for (propName in defaultProps) {
+      if (props[propName] === undefined) {
+        props[propName] = defaultProps[propName];
+      }
+    }
+  }
+
+  if (key || ref) {
+    var displayName = typeof type === 'function' ? type.displayName || type.name || 'Unknown' : type;
+    if (key) {
+      defineKeyPropWarningGetter(props, displayName);
+    }
+    if (ref) {
+      defineRefPropWarningGetter(props, displayName);
+    }
+  }
+
+  return ReactElement(type, key, ref, self, source, ReactCurrentOwner.current, props);
+}
 
 /**
  * Create and return a new ReactElement of the given type.
@@ -837,7 +913,13 @@ function cloneAndReplaceKey(oldElement, newKey) {
  * See https://reactjs.org/docs/react-api.html#cloneelement
  */
 function cloneElement(element, config, children) {
-  !!(element === null || element === undefined) ? invariant(false, 'React.cloneElement(...): The argument must be a React element, but you passed %s.', element) : void 0;
+  (function () {
+    if (!!(element === null || element === undefined)) {
+      {
+        throw ReactError(Error('React.cloneElement(...): The argument must be a React element, but you passed ' + element + '.'));
+      }
+    }
+  })();
 
   var propName = void 0;
 
@@ -1057,7 +1139,13 @@ function traverseAllChildrenImpl(children, nameSoFar, callback, traverseContext)
         addendum = ' If you meant to render a collection of children, use an array ' + 'instead.' + ReactDebugCurrentFrame.getStackAddendum();
       }
       var childrenString = '' + children;
-      invariant(false, 'Objects are not valid as a React child (found: %s).%s', childrenString === '[object Object]' ? 'object with keys {' + Object.keys(children).join(', ') + '}' : childrenString, addendum);
+      (function () {
+        {
+          {
+            throw ReactError(Error('Objects are not valid as a React child (found: ' + (childrenString === '[object Object]' ? 'object with keys {' + Object.keys(children).join(', ') + '}' : childrenString) + ').' + addendum));
+          }
+        }
+      })();
     }
   }
 
@@ -1233,7 +1321,13 @@ function toArray(children) {
  * structure.
  */
 function onlyChild(children) {
-  !isValidElement(children) ? invariant(false, 'React.Children.only expected to receive a single React element child.') : void 0;
+  (function () {
+    if (!isValidElement(children)) {
+      {
+        throw ReactError(Error('React.Children.only expected to receive a single React element child.'));
+      }
+    }
+  })();
   return children;
 }
 
@@ -1415,7 +1509,7 @@ function forwardRef(render) {
 function isValidElementType(type) {
   return typeof type === 'string' || typeof type === 'function' ||
   // Note: its typeof might be other than 'symbol' or 'number' if it's a polyfill.
-  type === REACT_FRAGMENT_TYPE || type === REACT_CONCURRENT_MODE_TYPE || type === REACT_PROFILER_TYPE || type === REACT_STRICT_MODE_TYPE || type === REACT_SUSPENSE_TYPE || typeof type === 'object' && type !== null && (type.$$typeof === REACT_LAZY_TYPE || type.$$typeof === REACT_MEMO_TYPE || type.$$typeof === REACT_PROVIDER_TYPE || type.$$typeof === REACT_CONTEXT_TYPE || type.$$typeof === REACT_FORWARD_REF_TYPE);
+  type === REACT_FRAGMENT_TYPE || type === REACT_CONCURRENT_MODE_TYPE || type === REACT_PROFILER_TYPE || type === REACT_STRICT_MODE_TYPE || type === REACT_SUSPENSE_TYPE || type === REACT_SUSPENSE_LIST_TYPE || typeof type === 'object' && type !== null && (type.$$typeof === REACT_LAZY_TYPE || type.$$typeof === REACT_MEMO_TYPE || type.$$typeof === REACT_PROVIDER_TYPE || type.$$typeof === REACT_CONTEXT_TYPE || type.$$typeof === REACT_FORWARD_REF_TYPE || type.$$typeof === REACT_FUNDAMENTAL_TYPE || type.$$typeof === REACT_RESPONDER_TYPE);
 }
 
 function memo(type, compare) {
@@ -1433,7 +1527,13 @@ function memo(type, compare) {
 
 function resolveDispatcher() {
   var dispatcher = ReactCurrentDispatcher.current;
-  !(dispatcher !== null) ? invariant(false, 'Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:\n1. You might have mismatching versions of React and the renderer (such as React DOM)\n2. You might be breaking the Rules of Hooks\n3. You might have more than one copy of React in the same app\nSee https://fb.me/react-invalid-hook-call for tips about how to debug and fix this problem.') : void 0;
+  (function () {
+    if (!(dispatcher !== null)) {
+      {
+        throw ReactError(Error('Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:\n1. You might have mismatching versions of React and the renderer (such as React DOM)\n2. You might be breaking the Rules of Hooks\n3. You might have more than one copy of React in the same app\nSee https://fb.me/react-invalid-hook-call for tips about how to debug and fix this problem.'));
+      }
+    }
+  })();
   return dispatcher;
 }
 
@@ -1504,6 +1604,30 @@ function useDebugValue(value, formatterFn) {
   }
 }
 
+var emptyObject$1 = {};
+
+function useResponder(responder, listenerProps) {
+  var dispatcher = resolveDispatcher();
+  {
+    if (responder == null || responder.$$typeof !== REACT_RESPONDER_TYPE) {
+      warning$1(false, 'useResponder: invalid first argument. Expected an event responder, but instead got %s', responder);
+      return;
+    }
+  }
+  return dispatcher.useResponder(responder, listenerProps || emptyObject$1);
+}
+
+// Within the scope of the callback, mark all updates as being allowed to suspend.
+function withSuspenseConfig(scope, config) {
+  var previousConfig = ReactCurrentBatchConfig.suspense;
+  ReactCurrentBatchConfig.suspense = config === undefined ? null : config;
+  try {
+    scope();
+  } finally {
+    ReactCurrentBatchConfig.suspense = previousConfig;
+  }
+}
+
 /**
  * ReactElementValidator provides a wrapper around a element factory
  * which validates the props passed to the element. This is intended to be
@@ -1527,12 +1651,18 @@ function getDeclarationErrorAddendum() {
   return '';
 }
 
-function getSourceInfoErrorAddendum(elementProps) {
-  if (elementProps !== null && elementProps !== undefined && elementProps.__source !== undefined) {
-    var source = elementProps.__source;
+function getSourceInfoErrorAddendum(source) {
+  if (source !== undefined) {
     var fileName = source.fileName.replace(/^.*[\\\/]/, '');
     var lineNumber = source.lineNumber;
     return '\n\nCheck your code at ' + fileName + ':' + lineNumber + '.';
+  }
+  return '';
+}
+
+function getSourceInfoErrorAddendumForProps(elementProps) {
+  if (elementProps !== null && elementProps !== undefined) {
+    return getSourceInfoErrorAddendum(elementProps.__source);
   }
   return '';
 }
@@ -1697,6 +1827,90 @@ function validateFragmentProps(fragment) {
   setCurrentlyValidatingElement(null);
 }
 
+function jsxWithValidation(type, props, key, isStaticChildren, source, self) {
+  var validType = isValidElementType(type);
+
+  // We warn in this case but don't throw. We expect the element creation to
+  // succeed and there will likely be errors in render.
+  if (!validType) {
+    var info = '';
+    if (type === undefined || typeof type === 'object' && type !== null && Object.keys(type).length === 0) {
+      info += ' You likely forgot to export your component from the file ' + "it's defined in, or you might have mixed up default and named imports.";
+    }
+
+    var sourceInfo = getSourceInfoErrorAddendum(source);
+    if (sourceInfo) {
+      info += sourceInfo;
+    } else {
+      info += getDeclarationErrorAddendum();
+    }
+
+    var typeString = void 0;
+    if (type === null) {
+      typeString = 'null';
+    } else if (Array.isArray(type)) {
+      typeString = 'array';
+    } else if (type !== undefined && type.$$typeof === REACT_ELEMENT_TYPE) {
+      typeString = '<' + (getComponentName(type.type) || 'Unknown') + ' />';
+      info = ' Did you accidentally export a JSX literal instead of a component?';
+    } else {
+      typeString = typeof type;
+    }
+
+    warning$1(false, 'React.jsx: type is invalid -- expected a string (for ' + 'built-in components) or a class/function (for composite ' + 'components) but got: %s.%s', typeString, info);
+  }
+
+  var element = jsxDEV(type, props, key, source, self);
+
+  // The result can be nullish if a mock or a custom function is used.
+  // TODO: Drop this when these are no longer allowed as the type argument.
+  if (element == null) {
+    return element;
+  }
+
+  // Skip key warning if the type isn't valid since our key validation logic
+  // doesn't expect a non-string/function type and can throw confusing errors.
+  // We don't want exception behavior to differ between dev and prod.
+  // (Rendering will throw with a helpful message and as soon as the type is
+  // fixed, the key warnings will appear.)
+  if (validType) {
+    var children = props.children;
+    if (children !== undefined) {
+      if (isStaticChildren) {
+        for (var i = 0; i < children.length; i++) {
+          validateChildKeys(children[i], type);
+        }
+      } else {
+        validateChildKeys(children, type);
+      }
+    }
+  }
+
+  if (props.key !== undefined) {
+    warning$1(false, 'React.jsx: Spreading a key to JSX is a deprecated pattern. ' + 'Explicitly pass a key after spreading props in your JSX call. ' + 'E.g. <ComponentName {...props} key={key} />');
+  }
+
+  if (type === REACT_FRAGMENT_TYPE) {
+    validateFragmentProps(element);
+  } else {
+    validatePropTypes(element);
+  }
+
+  return element;
+}
+
+// These two functions exist to still get child warnings in dev
+// even with the prod transform. This means that jsxDEV is purely
+// opt-in behavior for better messages but that we won't stop
+// giving you warnings if you use production apis.
+function jsxWithValidationStatic(type, props, key) {
+  return jsxWithValidation(type, props, key, true);
+}
+
+function jsxWithValidationDynamic(type, props, key) {
+  return jsxWithValidation(type, props, key, false);
+}
+
 function createElementWithValidation(type, props, children) {
   var validType = isValidElementType(type);
 
@@ -1708,7 +1922,7 @@ function createElementWithValidation(type, props, children) {
       info += ' You likely forgot to export your component from the file ' + "it's defined in, or you might have mixed up default and named imports.";
     }
 
-    var sourceInfo = getSourceInfoErrorAddendum(props);
+    var sourceInfo = getSourceInfoErrorAddendumForProps(props);
     if (sourceInfo) {
       info += sourceInfo;
     } else {
@@ -1787,6 +2001,73 @@ function cloneElementWithValidation(element, props, children) {
   return newElement;
 }
 
+var hasBadMapPolyfill = void 0;
+
+{
+  hasBadMapPolyfill = false;
+  try {
+    var frozenObject = Object.freeze({});
+    var testMap = new Map([[frozenObject, null]]);
+    var testSet = new Set([frozenObject]);
+    // This is necessary for Rollup to not consider these unused.
+    // https://github.com/rollup/rollup/issues/1771
+    // TODO: we can remove these if Rollup fixes the bug.
+    testMap.set(0, 0);
+    testSet.add(0);
+  } catch (e) {
+    // TODO: Consider warning about bad polyfills
+    hasBadMapPolyfill = true;
+  }
+}
+
+function createFundamentalComponent(impl) {
+  // We use responder as a Map key later on. When we have a bad
+  // polyfill, then we can't use it as a key as the polyfill tries
+  // to add a property to the object.
+  if (true && !hasBadMapPolyfill) {
+    Object.freeze(impl);
+  }
+  var fundamantalComponent = {
+    $$typeof: REACT_FUNDAMENTAL_TYPE,
+    impl: impl
+  };
+  {
+    Object.freeze(fundamantalComponent);
+  }
+  return fundamantalComponent;
+}
+
+function createEventResponder(displayName, responderConfig) {
+  var getInitialState = responderConfig.getInitialState,
+      onEvent = responderConfig.onEvent,
+      onMount = responderConfig.onMount,
+      onUnmount = responderConfig.onUnmount,
+      onOwnershipChange = responderConfig.onOwnershipChange,
+      onRootEvent = responderConfig.onRootEvent,
+      rootEventTypes = responderConfig.rootEventTypes,
+      targetEventTypes = responderConfig.targetEventTypes;
+
+  var eventResponder = {
+    $$typeof: REACT_RESPONDER_TYPE,
+    displayName: displayName,
+    getInitialState: getInitialState || null,
+    onEvent: onEvent || null,
+    onMount: onMount || null,
+    onOwnershipChange: onOwnershipChange || null,
+    onRootEvent: onRootEvent || null,
+    onUnmount: onUnmount || null,
+    rootEventTypes: rootEventTypes || null,
+    targetEventTypes: targetEventTypes || null
+  };
+  // We use responder as a Map key later on. When we have a bad
+  // polyfill, then we can't use it as a key as the polyfill tries
+  // to add a property to the object.
+  if (true && !hasBadMapPolyfill) {
+    Object.freeze(eventResponder);
+  }
+  return eventResponder;
+}
+
 // Helps identify side effects in begin-phase lifecycle hooks and setState reducers:
 
 
@@ -1818,13 +2099,55 @@ function cloneElementWithValidation(element, props, children) {
 // Only used in www builds.
 
 
+// Disable javascript: URL strings in href for XSS protection.
+
+
 // React Fire: prevent the value and checked attributes from syncing
 // with their related DOM properties
 
 
 // These APIs will no longer be "unstable" in the upcoming 16.7 release,
 // Control this behavior with a flag to support 16.6 minor releases in the meanwhile.
-var enableStableConcurrentModeAPIs = false;
+
+
+
+
+// See https://github.com/react-native-community/discussions-and-proposals/issues/72 for more information
+// This is a flag so we can fix warnings in RN core before turning it on
+
+
+// Experimental React Flare event system and event components support.
+var enableFlareAPI = false;
+
+// Experimental Host Component support.
+var enableFundamentalAPI = false;
+
+// New API for JSX transforms to target - https://github.com/reactjs/rfcs/pull/107
+var enableJSXTransformAPI = false;
+
+// We will enforce mocking scheduler with scheduler/unstable_mock at some point. (v17?)
+// Till then, we warn about the missing mock, but still fallback to a sync mode compatible version
+
+// Temporary flag to revert the fix in #15650
+
+
+// For tests, we flush suspense fallbacks in an act scope;
+// *except* in some of our own tests, where we test incremental loading states.
+
+
+// Changes priority of some events like mousemove to user-blocking priority,
+// but without making them discrete. The flag exists in case it causes
+// starvation problems.
+
+
+// Add a callback property to suspense to notify which promises are currently
+// in the update queue. This allows reporting and tracing of what is causing
+// the user to see a loading state.
+
+
+// Part of the simplification of React.createElement so we can eventually move
+// from React.createElement to React.jsx
+// https://github.com/reactjs/rfcs/blob/createlement-rfc/text/0000-create-element-changes.md
 
 var React = {
   Children: {
@@ -1856,8 +2179,10 @@ var React = {
   useState: useState,
 
   Fragment: REACT_FRAGMENT_TYPE,
+  Profiler: REACT_PROFILER_TYPE,
   StrictMode: REACT_STRICT_MODE_TYPE,
   Suspense: REACT_SUSPENSE_TYPE,
+  unstable_SuspenseList: REACT_SUSPENSE_LIST_TYPE,
 
   createElement: createElementWithValidation,
   cloneElement: cloneElementWithValidation,
@@ -1866,22 +2191,31 @@ var React = {
 
   version: ReactVersion,
 
-  unstable_ConcurrentMode: REACT_CONCURRENT_MODE_TYPE,
-  unstable_Profiler: REACT_PROFILER_TYPE,
+  unstable_withSuspenseConfig: withSuspenseConfig,
 
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: ReactSharedInternals
 };
+
+if (enableFlareAPI) {
+  React.unstable_useResponder = useResponder;
+  React.unstable_createResponder = createEventResponder;
+}
+
+if (enableFundamentalAPI) {
+  React.unstable_createFundamental = createFundamentalComponent;
+}
 
 // Note: some APIs are added with feature flags.
 // Make sure that stable builds for open source
 // don't modify the React object to avoid deopts.
 // Also let's not expose their names in stable builds.
 
-if (enableStableConcurrentModeAPIs) {
-  React.ConcurrentMode = REACT_CONCURRENT_MODE_TYPE;
-  React.Profiler = REACT_PROFILER_TYPE;
-  React.unstable_ConcurrentMode = undefined;
-  React.unstable_Profiler = undefined;
+if (enableJSXTransformAPI) {
+  {
+    React.jsxDEV = jsxWithValidation;
+    React.jsx = jsxWithValidationDynamic;
+    React.jsxs = jsxWithValidationStatic;
+  }
 }
 
 
